@@ -13,12 +13,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.epam.rd.autotasks.ThrowingConsumer.silentConsumer;
-import static com.epam.rd.autotasks.ThrowingRunnable.silentRunnable;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static java.util.stream.IntStream.range;
@@ -27,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 class ThreadUnionTest {
 
@@ -190,29 +189,46 @@ class ThreadUnionTest {
         final String unionName = methodName();
         final ThreadUnion threadUnion = ThreadUnion.newInstance(unionName);
 
+        assertFalse(threadUnion.isShutdown());
         assertFalse(threadUnion.isFinished());
 
-        final int threadsCount = 4;
+        final int threadsCount = 3;
 
         final List<Thread> threads = Stream.generate(ReentrantLock::new)
                 .limit(threadsCount)
-                .map(lock -> threadUnion.newThread(silentRunnable(lock::lockInterruptibly)))
+                .map(lock -> threadUnion.newThread(() -> {
+                    try {
+                        final long beforeSleep = System.currentTimeMillis();
+                        while (!Thread.currentThread().isInterrupted()) {
+                            Thread.sleep(10);
+                            if (System.currentTimeMillis() - beforeSleep > 1000 ){
+                                throw new NotInterruptedException();
+                            }
+                        }
+                    } catch (InterruptedException e) {
+                        throw new RuntimeException(e);
+                    }
+                }))
                 .collect(toList());
 
         startThreads(threads);
+        assertFalse(threadUnion.isShutdown());
+        assertFalse(threadUnion.isFinished());
 
         threadUnion.shutdown();
         assertTrue(threadUnion.isShutdown());
         assertThrows(IllegalStateException.class, () -> threadUnion.newThread(this::printThreadName));
 
         threadUnion.awaitTermination();
+        assertTrue(threadUnion.isShutdown());
         assertTrue(threadUnion.isFinished());
-
+        assertEquals(threadsCount, threadUnion.totalSize());
+        assertEquals(0, threadUnion.activeSize());
+        assertEquals(threadsCount, threadUnion.results().size());
+        threadUnion.results().forEach(res -> assertFalse(
+                res.getThrowable() instanceof NotInterruptedException,
+                "Threads were not interrupted"));
         threads.forEach(thread -> assertFalse(thread.isAlive()));
-
-        final List<FinishedThreadResult> results = threadUnion.results();
-        assertEquals(threadsCount, results.size());
-        results.forEach(result -> assertTrue(result.getThrowable().getCause() instanceof InterruptedException));
     }
 
     @SafeVarargs
