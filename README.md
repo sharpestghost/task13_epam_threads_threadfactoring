@@ -17,5 +17,5 @@ Methods description:
 | `void shutdown()` | Interrupts all created threads and prevents creating of more Threads. |
 | `boolean isShutdown()` | Returns true if shutdown was called. |
 | `void awaitTermination()` | Blocks until all of created threads are finished. |
-| `boolean isFinished()` | Checks if a ThreadUnion was shutdown and all of created threads ahs finished.|
+| `boolean isFinished()` | Checks if a ThreadUnion was shutdown and all of created threads has finished.|
 | `List<FinishedThreadResult> results()` | Returns a list of results of finished threads. No results must be returned for threads that are not finished yet. A result must contain a thread name, a timestamp when it finished execution and a Throwable if it was thrown | 
