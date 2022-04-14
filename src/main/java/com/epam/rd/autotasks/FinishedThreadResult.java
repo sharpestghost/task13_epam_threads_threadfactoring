@@ -36,34 +36,33 @@ public class FinishedThreadResult implements ThreadUnion{
     }
 
     @Override
-    public synchronized int totalSize() {
+    public int totalSize() {
         return threadList.size();
     }
 
     @Override
-    public synchronized int activeSize() {
-       return (int) threadList.stream().filter(Thread::isAlive).count();
+    public int activeSize() {
+       return (int) threadList.stream().filter((Thread::isAlive)).count();
     }
 
     @Override
-    public synchronized void shutdown() {
-        threadList.forEach(Thread::interrupt);
+    public void shutdown() {
         isShutdown = true;
     }
 
     @Override
-    public synchronized boolean isShutdown() {
+    public boolean isShutdown() {
         return isShutdown;
     }
 
     @Override
-    public synchronized void awaitTermination() {
+    public void awaitTermination() {
         threadList.forEach(Thread::interrupt);
     }
 
     @Override
     public boolean isFinished() {
-        return isShutdown;
+        return isShutdown();
     }
 
     @Override
