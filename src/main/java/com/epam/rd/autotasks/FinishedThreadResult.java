@@ -1,14 +1,15 @@
 package com.epam.rd.autotasks;
 
+import javax.annotation.Nonnull;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-public class FinishedThreadResult implements ThreadUnion{
+public class FinishedThreadResult implements ThreadUnion {
     private final String threadName;
     private final LocalDateTime finished;
     private final Throwable throwable;
-    private boolean isShutdown = false;
+    private boolean isShutdown;
     private final List<Thread> threadList = new ArrayList<>();
     private final List<FinishedThreadResult> finishedThreadList = new ArrayList<>();
     private static final String THREAD_TITLE = "-worker-";
@@ -42,11 +43,13 @@ public class FinishedThreadResult implements ThreadUnion{
 
     @Override
     public int activeSize() {
-       return (int) threadList.stream().filter((Thread::isAlive)).count();
+       return (int) threadList.stream().filter(Thread::isAlive).count();
     }
 
     @Override
-    public void shutdown() {
+    public synchronized void shutdown() {
+        Thread.yield();
+        threadList.forEach(Thread::interrupt);
         isShutdown = true;
     }
 
@@ -56,22 +59,27 @@ public class FinishedThreadResult implements ThreadUnion{
     }
 
     @Override
-    public void awaitTermination() {
-        threadList.forEach(Thread::interrupt);
+    public synchronized void awaitTermination() {
+        while (!isFinished()) {
+            //i don't understand what i really need to do here
+            Thread.yield();
+            shutdown();
+        }
     }
+
 
     @Override
     public boolean isFinished() {
-        return isShutdown();
+        return isShutdown() && activeSize() == 0;
     }
 
     @Override
     public synchronized List<FinishedThreadResult> results() {
-        return finishedThreadList;
+        return new ArrayList<>(finishedThreadList);
     }
 
     @Override
-    public synchronized Thread newThread(Runnable r) {
+    public synchronized Thread newThread(@Nonnull Runnable r) {
         if (!isShutdown) {
             Thread t = new Thread(r, threadName + THREAD_TITLE + threadList.size()) {
                 @Override
@@ -82,8 +90,7 @@ public class FinishedThreadResult implements ThreadUnion{
                     } catch (Exception e) {
                         finishedThreadList.add(new FinishedThreadResult(this.getName(), e));
                         finallyExecution = false;
-                    }
-                    finally {
+                    } finally {
                         if (finallyExecution) {
                             finishedThreadList.add(new FinishedThreadResult(this.getName()));
                         }
@@ -92,8 +99,7 @@ public class FinishedThreadResult implements ThreadUnion{
             };
             threadList.add(t);
             return t;
-        }
-        else {
+        } else {
             throw new IllegalStateException();
         }
     }
