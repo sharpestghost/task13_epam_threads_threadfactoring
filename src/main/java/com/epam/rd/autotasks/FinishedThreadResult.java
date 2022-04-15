@@ -6,13 +6,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class FinishedThreadResult implements ThreadUnion {
+    private static final String THREAD_TITLE = "-worker-";
     private final String threadName;
     private final LocalDateTime finished;
     private final Throwable throwable;
-    private boolean isShutdown;
     private final List<Thread> threadList = new ArrayList<>();
     private final List<FinishedThreadResult> finishedThreadList = new ArrayList<>();
-    private static final String THREAD_TITLE = "-worker-";
+    private boolean isShutdown;
 
     public FinishedThreadResult(final String threadName) {
         this(threadName, null);
@@ -43,7 +43,7 @@ public class FinishedThreadResult implements ThreadUnion {
 
     @Override
     public int activeSize() {
-       return (int) threadList.stream().filter(Thread::isAlive).count();
+        return (int) threadList.stream().filter(Thread::isAlive).count();
     }
 
     @Override
